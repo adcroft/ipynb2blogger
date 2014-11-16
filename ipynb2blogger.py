@@ -22,20 +22,59 @@ def main():
   """
   global debug
 
-  parser = argparse.ArgumentParser(description=
-    '''
-    ipynb2blogger.py posts html files as blog posts to blogger.
-    ''',
-    parents = [argparser],
+  parser = argparse.ArgumentParser(
+    description='ipynb2blogger.py is a tool for posting iPython notebooks to blogger.',
+    parents=[argparser],
     epilog='Written by A.Adcroft, 2014 (https://github.com/Adcroft).')
-  parser.add_argument('blog_url', type=str, help='URL of blogger blog.')
-  parser.add_argument('-d', '--debug', action='store_true',
-    help='Turn on debugging.')
-  cArgs = parser.parse_args()
+  parser.add_argument('-d', '--debug', action='store_true', help='Turn on debugging.')
+  subparsers = parser.add_subparsers()#help='sub-command help')
 
+  parser_listblogs = subparsers.add_parser('listblogs', help='Lists blogs you can post to.')
+  parser_listblogs.set_defaults(action=listBlogs)
+
+  cArgs = parser.parse_args()
   if cArgs.debug: debug = cArgs.debug
   if debug: print 'cArgs=',cArgs
   if debug: print '__file__=',__file__
+  cArgs.action(cArgs)
+
+
+def listBlogs(args):
+  """
+  Lists blogs associated with authenticated user.
+  """
+  global debug
+  if debug: print 'listBlogs:args=',args
+
+  service, http = authenticate()
+
+  users = service.users()
+  if debug: print 'users=',users
+  
+  # Retrieve this user's profile information
+  thisuser = users.get(userId='self').execute(http=http)
+  if debug: print 'thisuser=',thisuser
+  print 'This user\'s display name is: %s' % thisuser['displayName']
+
+  # Retrieve the list of Blogs this user has write privileges on
+  blogs = service.blogs()
+  if debug: print 'blogs=',blogs
+  thisusersblogs = blogs.listByUser(userId='self').execute()
+  if debug: print 'thisusersblogs=',thisusersblogs
+  if 'items' in thisusersblogs:
+    for blog in thisusersblogs['items']:
+      if debug: print 'blog=',blog
+      print 'The blog named \'%s\' is at: %s' % (blog['name'], blog['url'])
+  else: print 'No blogs found'
+
+
+def authenticate():
+  """
+  Handles authentication.
+
+  Returns service object, Http object.
+  """
+  global debug
 
   # Create storage for credentials
   storage = Storage('credentials.dat')
@@ -65,24 +104,7 @@ def main():
   service = build('blogger', 'v3', http=http)
   if debug: print 'service=',service
 
-  users = service.users()
-  if debug: print 'users=',users
-  
-  # Retrieve this user's profile information
-  thisuser = users.get(userId='self').execute(http=http)
-  if debug: print 'thisuser=',thisuser
-  print 'This user\'s display name is: %s' % thisuser['displayName']
-
-  # Retrieve the list of Blogs this user has write privileges on
-  blogs = service.blogs()
-  if debug: print 'blogs=',blogs
-  thisusersblogs = blogs.listByUser(userId='self').execute()
-  if debug: print 'thisusersblogs=',thisusersblogs
-  if 'items' in thisusersblogs:
-    for blog in thisusersblogs['items']:
-      if debug: print 'blog=',blog
-      print 'The blog named \'%s\' is at: %s' % (blog['name'], blog['url'])
-  else: print 'No blogs found'
+  return service, http
 
 
 # Invoke the top-level procedure
