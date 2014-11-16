@@ -29,8 +29,15 @@ def main():
   parser.add_argument('-d', '--debug', action='store_true', help='Turn on debugging.')
   subparsers = parser.add_subparsers()#help='sub-command help')
 
-  parser_listblogs = subparsers.add_parser('listblogs', help='Lists blogs you can post to.')
+  parser_nameuser = subparsers.add_parser('whoami', help='Display username you are authenticated as.')
+  parser_nameuser.set_defaults(action=nameUser)
+
+  parser_listblogs = subparsers.add_parser('listblogs', help='Lists blogs the authenticated user can post to.')
   parser_listblogs.set_defaults(action=listBlogs)
+
+  parser_listposts = subparsers.add_parser('list', help='Lists posts in blog at url.')
+  parser_listposts.add_argument('url', type=str, help='URL of blogger blog.')
+  parser_listposts.set_defaults(action=listPosts)
 
   cArgs = parser.parse_args()
   if cArgs.debug: debug = cArgs.debug
@@ -39,12 +46,12 @@ def main():
   cArgs.action(cArgs)
 
 
-def listBlogs(args):
+def nameUser(args):
   """
-  Lists blogs associated with authenticated user.
+  Displays name of authenticated user.
   """
   global debug
-  if debug: print 'listBlogs:args=',args
+  if debug: print 'nameUser:args=',args
 
   service, http = authenticate()
 
@@ -56,6 +63,16 @@ def listBlogs(args):
   if debug: print 'thisuser=',thisuser
   print 'This user\'s display name is: %s' % thisuser['displayName']
 
+
+def listBlogs(args):
+  """
+  Lists blogs associated with authenticated user.
+  """
+  global debug
+  if debug: print 'listBlogs:args=',args
+
+  service, http = authenticate()
+
   # Retrieve the list of Blogs this user has write privileges on
   blogs = service.blogs()
   if debug: print 'blogs=',blogs
@@ -66,6 +83,26 @@ def listBlogs(args):
       if debug: print 'blog=',blog
       print 'The blog named \'%s\' is at: %s' % (blog['name'], blog['url'])
   else: print 'No blogs found'
+
+
+def listPosts(args):
+  """
+  Lists posts at blog.
+  """
+  global debug
+  if debug: print 'listPosts:args=',args
+
+  service, http = authenticate()
+
+  # Retrieve the list of Blogs this user has write privileges on
+  blogs = service.blogs()
+  if debug: print 'blogs=',blogs
+  blogdata = blogs.getByUrl(url=args.url).execute()
+  if debug: print 'blogdata=',blogdata
+  id = blogdata['id']
+
+  thisusersposts = service.posts().list(blogId=id).execute()
+  if debug: print 'thisusersposts=',thisusersposts
 
 
 def authenticate():
