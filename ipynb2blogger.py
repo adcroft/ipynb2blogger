@@ -44,6 +44,7 @@ def main():
   parser_insertPost = subparsers.add_parser('insert', help='Upload a post.')
   parser_insertPost.add_argument('url', type=str, help='URL of blogger blog.')
   parser_insertPost.add_argument('file', type=str, help='File to upload as the post.')
+  parser_insertPost.add_argument('-u', '--update', action='store_true', help='Update existing post matched by title.')
   parser_insertPost.set_defaults(action=insertPost)
 
   cArgs = parser.parse_args()
@@ -119,7 +120,7 @@ def listPosts(args, debug=False):
   # Get list of posts
   posts = service.posts()
   if debug: print 'posts =',posts
-  request = posts.list(blogId=blogId, status=status)
+  request = posts.list(blogId=blogId, status=status, fetchBodies=False)
   if debug: print 'posts().list(blogId=blogId) =',request.to_json()
   response = request.execute()
   #response = service.posts().list(blogId=blogId).execute()
@@ -129,7 +130,7 @@ def listPosts(args, debug=False):
       print item['published'],item['title']
       if debug: print json.dumps(item, indent=2)
     if 'nextPageToken' in response:
-      request = posts.list(blogId=blogId, pageToken=response['nextPageToken'], status=status)
+      request = posts.list(blogId=blogId, pageToken=response['nextPageToken'], status=status, fetchBodies=False)
       response = request.execute()
     else:
       response = {} # Leave while loop
@@ -140,12 +141,7 @@ def insertPost(args, debug=False):
   Inserts a file as a post to a blog.
   """
 
-  # Build body of post
-  body = {}
-  body['kind'] = 'blogger#post'
-
   title = os.path.splitext( os.path.basename(args.file) )[0]
-  body['title'] = title
 
   # Read mathJax header
   mathJaxFile = os.path.join(os.path.dirname(__file__),'mathJax.html')
@@ -155,7 +151,6 @@ def insertPost(args, debug=False):
   # Read file to post
   with open (args.file, 'r') as htmlfile:
     html = htmlfile.read()
-  body['content'] = mathJax + html
 
   # Start communications with blogger
   service, http = authenticate(args)
@@ -174,11 +169,12 @@ def insertPost(args, debug=False):
   # Get blogId
   blogId = response['id']
   if debug: print 'blogId =',blogId
-  body['blog'] = {'id': blogId}
 
   # posts instance
   posts = service.posts()
   if debug: print 'posts =',posts
+
+  # Build body of post
 
   # Check post doesn't already exist
   existingPost = getPostByTitle(posts, blogId, title, status='draft', debug=False)
@@ -186,16 +182,28 @@ def insertPost(args, debug=False):
     existingPost = getPostByTitle(posts, blogId, title, status='scheduled', debug=False)
   if existingPost == None:
     existingPost = getPostByTitle(posts, blogId, title, status='live', debug=False)
-  if existingPost != None:
-    print 'Post "'+title+'" already exists!'
-    return
 
-  # Insert new post
-  request = posts.insert(blogId=blogId, body=body, isDraft=True)
-  if debug: print 'posts().insert() =',request.to_json()
-  response = request.execute()
-  #response = service.posts().list(blogId=blogId).execute()
-  if debug: print 'response =',json.dumps(response, indent=2)
+  if existingPost != None:
+    if args.update:
+      existingPost['content'] = mathJax + html
+      postId = existingPost['id']
+      request = posts.update(blogId=blogId, postId=postId, body=existingPost)
+      if debug: print 'posts().update() =',request.to_json()
+      response = request.execute()
+      if debug: print 'response =',json.dumps(response, indent=2)
+    else:
+      print 'Post "'+title+'" already exists!'
+  else:
+    # Insert new post
+    body = {}
+    body['kind'] = 'blogger#post'
+    body['title'] = title
+    body['content'] = mathJax + html
+    body['blog'] = {'id': blogId}
+    request = posts.insert(blogId=blogId, body=body, isDraft=True)
+    if debug: print 'posts().insert() =',request.to_json()
+    response = request.execute()
+    if debug: print 'response =',json.dumps(response, indent=2)
 
 
 def getPostByTitle(posts, blogId, title, status='draft', debug=False):
@@ -206,7 +214,7 @@ def getPostByTitle(posts, blogId, title, status='draft', debug=False):
   """
 
   # Get list of posts
-  request = posts.list(blogId=blogId, status=status)
+  request = posts.list(blogId=blogId, status=status, fetchBodies=False)
   if debug: print 'posts().list(blogId=blogId) =',request.to_json()
   response = request.execute()
   #response = posts.list(blogId=blogId).execute()
@@ -217,7 +225,7 @@ def getPostByTitle(posts, blogId, title, status='draft', debug=False):
         return item
       if debug: print json.dumps(item, indent=2)
     if 'nextPageToken' in response:
-      request = posts.list(blogId=blogId, pageToken=response['nextPageToken'], status=status)
+      request = posts.list(blogId=blogId, pageToken=response['nextPageToken'], status=status, fetchBodies=False)
       response = request.execute()
     else:
       response = {} # Leave while loop
