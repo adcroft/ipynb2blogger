@@ -145,7 +145,7 @@ def authenticate(args, debug=False):
   client_secrets = os.path.join(os.path.dirname(__file__),'client_secrets.json')
   flow = client.flow_from_clientsecrets(client_secrets,
       scope='https://www.googleapis.com/auth/blogger',
-      message='Eeek')
+      message='Could not find a valid client_secrets.json file!')
   if debug: print 'flow =',flow
 
   # Load credentials from Storage object, or run(flow)
