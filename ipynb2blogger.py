@@ -3,6 +3,7 @@
 import argparse
 import httplib2
 import json
+import logging
 import os
 # Google APIs
 from apiclient.discovery import build
@@ -10,9 +11,7 @@ from oauth2client import client
 from oauth2client.file import Storage
 from oauth2client.tools import run_flow
 from oauth2client.tools import argparser
-
-# Globals
-debug = False
+from googleapiclient.errors import HttpError
 
 
 def main():
@@ -29,8 +28,8 @@ def main():
   parser.add_argument('-d', '--debug', action='store_true', help='Turn on debugging.')
   subparsers = parser.add_subparsers()#help='sub-command help')
 
-  parser_nameuser = subparsers.add_parser('whoami', help='Display username you are authenticated as.')
-  parser_nameuser.set_defaults(action=nameUser)
+  parser_whoami = subparsers.add_parser('whoami', help='Display username you are authenticated as.')
+  parser_whoami.set_defaults(action=whoAmI)
 
   parser_listblogs = subparsers.add_parser('listblogs', help='Lists blogs the authenticated user can post to.')
   parser_listblogs.set_defaults(action=listBlogs)
@@ -40,106 +39,124 @@ def main():
   parser_listposts.set_defaults(action=listPosts)
 
   cArgs = parser.parse_args()
-  if cArgs.debug: debug = cArgs.debug
-  if debug: print 'cArgs=',cArgs
-  if debug: print '__file__=',__file__
-  cArgs.action(cArgs)
+  #if cArgs.debug:
+  #  httplib2.debuglevel = 4
+
+  cArgs.action(cArgs, debug=cArgs.debug)
 
 
-def nameUser(args):
+def whoAmI(args, debug=False):
   """
   Displays name of authenticated user.
   """
-  global debug
-  if debug: print 'nameUser:args=',args
 
-  service, http = authenticate()
+  service, http = authenticate(args)
 
   users = service.users()
-  if debug: print 'users=',users
+  if debug: print 'users =',users
   
   # Retrieve this user's profile information
-  thisuser = users.get(userId='self').execute(http=http)
-  if debug: print 'thisuser=',thisuser
-  print 'This user\'s display name is: %s' % thisuser['displayName']
+  request = users.get(userId='self')
+  if debug: print 'users().get(userId="self") =',request.to_json()
+  response = request.execute(http=http)
+  if debug: print 'response =',json.dumps(response,indent=2)
+  print 'This user\'s display name is: %s' % response['displayName']
 
 
-def listBlogs(args):
+def listBlogs(args, debug=False):
   """
   Lists blogs associated with authenticated user.
   """
-  global debug
-  if debug: print 'listBlogs:args=',args
 
-  service, http = authenticate()
+  service, http = authenticate(args)
 
   # Retrieve the list of Blogs this user has write privileges on
   blogs = service.blogs()
-  if debug: print 'blogs=',blogs
-  thisusersblogs = blogs.listByUser(userId='self').execute()
-  if debug: print 'thisusersblogs=',thisusersblogs
-  if 'items' in thisusersblogs:
-    for blog in thisusersblogs['items']:
-      if debug: print 'blog=',blog
+  if debug: print 'blogs =',blogs
+  request = blogs.listByUser(userId='self')
+  if debug: print 'blogs().listByUser(userId="self") =',request.to_json()
+  response = request.execute()
+  if debug: print 'response =',json.dumps(response,indent=2)
+  if 'items' in response:
+    for blog in response['items']:
+      if debug: print 'blog =',json.dumps(blog,indent=2)
       print 'The blog named \'%s\' is at: %s' % (blog['name'], blog['url'])
   else: print 'No blogs found'
 
 
-def listPosts(args):
+def listPosts(args, debug=False):
   """
   Lists posts at blog.
   """
-  global debug
-  if debug: print 'listPosts:args=',args
 
-  service, http = authenticate()
+  service, http = authenticate(args)
 
   # Retrieve the list of Blogs this user has write privileges on
   blogs = service.blogs()
-  if debug: print 'blogs=',blogs
-  blogdata = blogs.getByUrl(url=args.url).execute()
-  if debug: print 'blogdata=',blogdata
-  id = blogdata['id']
+  if debug: print 'blogs =',blogs
 
-  thisusersposts = service.posts().list(blogId=id).execute()
-  if debug: print 'thisusersposts=',thisusersposts
+  # Find blog by URL
+  request = blogs.getByUrl(url=args.url)
+  if debug: print 'blogs.getByUrl(url=args.url) =',request.to_json()
+  response = request.execute()
+  if debug: print 'response =',json.dumps(response, indent=2)
+  #response = blogs.getByUrl(url=args.url).execute()
+  id = response['id']
+  if debug: print 'blogId =',id
+
+  # Get list of posts
+  posts = service.posts()
+  if debug: print 'posts =',posts
+  request = posts.list(blogId=id)
+  if debug: print 'posts().list(blogId=id) =',request.to_json()
+  response = request.execute()
+  #response = service.posts().list(blogId=id).execute()
+  if debug: print 'response =',json.dumps(response, indent=2)
+  while response != None:
+    for item in response['items']:
+      print item['published'],item['title']
+      if debug: print json.dumps(item, indent=2)
+    if 'nextPageToken' in response:
+      request = posts.list(blogId=id, pageToken=response['nextPageToken'])
+      response = request.execute()
+    else:
+      response = None # Leave while loop
 
 
-def authenticate():
+def authenticate(args, debug=False):
   """
   Handles authentication.
 
   Returns service object, Http object.
   """
-  global debug
 
   # Create storage for credentials
   storage = Storage('credentials.dat')
-  if debug: print 'storage=',storage
+  if debug: print 'storage =',storage
 
   # Set up a Flow object to be used for authentication
   client_secrets = os.path.join(os.path.dirname(__file__),'client_secrets.json')
   flow = client.flow_from_clientsecrets(client_secrets,
       scope='https://www.googleapis.com/auth/blogger',
       message='Eeek')
-  if debug: print 'flow=',flow
+  if debug: print 'flow =',flow
 
   # Load credentials from Storage object, or run(flow)
   credentials = storage.get() # Returns None if no credentials found
-  if debug: print 'credentials=',credentials
+  if debug: print 'credentials =',credentials
   if credentials is None or credentials.invalid:
-    credentials = run_flow(flow, storage, flags=cArgs)
-    if debug: print '2:credentials=',credentials
+    credentials = run_flow(flow, storage, flags=args)
+    if debug: print '2:credentials =',credentials
 
   # Create an httplib2.Http object to handle our HTTP requests, and authorize it
   # using the credentials.authorize() function.
   http = httplib2.Http()
   http = credentials.authorize(http)
-  if debug: print 'http=',http
+  if debug: print 'http =',http
 
   # Create a service object
   service = build('blogger', 'v3', http=http)
-  if debug: print 'service=',service
+  if debug: print 'service =',service
 
   return service, http
 
