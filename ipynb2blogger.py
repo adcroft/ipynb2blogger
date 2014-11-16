@@ -189,7 +189,7 @@ def authenticate(args, debug=False):
   """
 
   # Create storage for credentials
-  storage = Storage('credentials.dat')
+  storage = Storage('.blogger.credentials')
   if debug: print 'storage =',storage
 
   # Set up a Flow object to be used for authentication

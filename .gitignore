@@ -1,6 +1,5 @@
 # client secrets
 client_secrets.json
-credentials.dat
 # Python
 *.pyc
 # vim
