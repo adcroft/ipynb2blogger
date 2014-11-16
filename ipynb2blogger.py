@@ -41,6 +41,11 @@ def main():
   group.add_argument('-d', '--draft', action='store_true', help='List draft posts.')
   group.add_argument('-s', '--scheduled', action='store_true', help='List scheduled posts.')
 
+  parser_insertPost = subparsers.add_parser('insert', help='Upload a post.')
+  parser_insertPost.add_argument('url', type=str, help='URL of blogger blog.')
+  parser_insertPost.add_argument('file', type=str, help='File to upload as the post.')
+  parser_insertPost.set_defaults(action=insertPost)
+
   cArgs = parser.parse_args()
   #if cArgs.debug:
   #  httplib2.debuglevel = 4
@@ -128,6 +133,52 @@ def listPosts(args, debug=False):
       response = request.execute()
     else:
       response = {} # Leave while loop
+
+
+def insertPost(args, debug=False):
+  """
+  Inserts a file as a post to a blog.
+  """
+
+  # Build body of post
+  body = {}
+  body['kind'] = 'blogger#post'
+
+  title = os.path.splitext( os.path.basename(args.file) )[0]
+  body['title'] = title
+
+  # Read file to post
+  with open (args.file, 'r') as htmlfile:
+    html=htmlfile.read()#.replace('\n', '')
+  body['content'] = html
+
+  # Start communications with blogger
+  service, http = authenticate(args)
+
+  # Retrieve the list of Blogs this user has write privileges on
+  blogs = service.blogs()
+  if debug: print 'blogs =',blogs
+
+  # Find blog by URL
+  request = blogs.getByUrl(url=args.url)
+  if debug: print 'blogs.getByUrl(url=args.url) =',request.to_json()
+  response = request.execute()
+  if debug: print 'response =',json.dumps(response, indent=2)
+  #response = blogs.getByUrl(url=args.url).execute()
+
+  # Get blogId
+  blogId = response['id']
+  if debug: print 'blogId =',blogId
+  body['blog'] = {'id': blogId}
+
+  # Post post
+  posts = service.posts()
+  if debug: print 'posts =',posts
+  request = posts.insert(blogId=blogId, body=body, isDraft=True)
+  if debug: print 'posts().insert() =',request.to_json()
+  response = request.execute()
+  #response = service.posts().list(blogId=blogId).execute()
+  if debug: print 'response =',json.dumps(response, indent=2)
 
 
 def authenticate(args, debug=False):
