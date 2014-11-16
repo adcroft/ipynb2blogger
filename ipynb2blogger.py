@@ -147,10 +147,15 @@ def insertPost(args, debug=False):
   title = os.path.splitext( os.path.basename(args.file) )[0]
   body['title'] = title
 
+  # Read mathJax header
+  mathJaxFile = os.path.join(os.path.dirname(__file__),'mathJax.html')
+  with open (mathJaxFile, 'r') as htmlfile:
+    mathJax = htmlfile.read()
+
   # Read file to post
   with open (args.file, 'r') as htmlfile:
-    html=htmlfile.read()#.replace('\n', '')
-  body['content'] = html
+    html = htmlfile.read()
+  body['content'] = mathJax + html
 
   # Start communications with blogger
   service, http = authenticate(args)
