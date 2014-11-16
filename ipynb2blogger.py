@@ -34,9 +34,12 @@ def main():
   parser_listblogs = subparsers.add_parser('listblogs', help='Lists blogs the authenticated user can post to.')
   parser_listblogs.set_defaults(action=listBlogs)
 
-  parser_listposts = subparsers.add_parser('list', help='Lists posts in blog at url.')
+  parser_listposts = subparsers.add_parser('list', help='Lists published posts in blog at url.')
   parser_listposts.add_argument('url', type=str, help='URL of blogger blog.')
   parser_listposts.set_defaults(action=listPosts)
+  group = parser_listposts.add_mutually_exclusive_group()
+  group.add_argument('-d', '--draft', action='store_true', help='List draft posts.')
+  group.add_argument('-s', '--scheduled', action='store_true', help='List scheduled posts.')
 
   cArgs = parser.parse_args()
   #if cArgs.debug:
@@ -88,7 +91,6 @@ def listPosts(args, debug=False):
   """
   Lists posts at blog.
   """
-
   service, http = authenticate(args)
 
   # Retrieve the list of Blogs this user has write privileges on
@@ -104,23 +106,28 @@ def listPosts(args, debug=False):
   id = response['id']
   if debug: print 'blogId =',id
 
+  # Options
+  status = None
+  if args.draft: status = 'draft'
+  if args.scheduled: status = 'scheduled'
+
   # Get list of posts
   posts = service.posts()
   if debug: print 'posts =',posts
-  request = posts.list(blogId=id)
+  request = posts.list(blogId=id, status=status)
   if debug: print 'posts().list(blogId=id) =',request.to_json()
   response = request.execute()
   #response = service.posts().list(blogId=id).execute()
   if debug: print 'response =',json.dumps(response, indent=2)
-  while response != None:
+  while 'items' in response:
     for item in response['items']:
       print item['published'],item['title']
       if debug: print json.dumps(item, indent=2)
     if 'nextPageToken' in response:
-      request = posts.list(blogId=id, pageToken=response['nextPageToken'])
+      request = posts.list(blogId=id, pageToken=response['nextPageToken'], status=status)
       response = request.execute()
     else:
-      response = None # Leave while loop
+      response = {} # Leave while loop
 
 
 def authenticate(args, debug=False):
