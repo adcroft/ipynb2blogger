@@ -176,14 +176,52 @@ def insertPost(args, debug=False):
   if debug: print 'blogId =',blogId
   body['blog'] = {'id': blogId}
 
-  # Post post
+  # posts instance
   posts = service.posts()
   if debug: print 'posts =',posts
+
+  # Check post doesn't already exist
+  existingPost = getPostByTitle(posts, blogId, title, status='draft', debug=False)
+  if existingPost == None:
+    existingPost = getPostByTitle(posts, blogId, title, status='scheduled', debug=False)
+  if existingPost == None:
+    existingPost = getPostByTitle(posts, blogId, title, status='live', debug=False)
+  if existingPost != None:
+    print 'Post "'+title+'" already exists!'
+    return
+
+  # Insert new post
   request = posts.insert(blogId=blogId, body=body, isDraft=True)
   if debug: print 'posts().insert() =',request.to_json()
   response = request.execute()
   #response = service.posts().list(blogId=blogId).execute()
   if debug: print 'response =',json.dumps(response, indent=2)
+
+
+def getPostByTitle(posts, blogId, title, status='draft', debug=False):
+  """
+  Searches through posts looking for a post with matching title.
+
+  Returns post or None.
+  """
+
+  # Get list of posts
+  request = posts.list(blogId=blogId, status=status)
+  if debug: print 'posts().list(blogId=blogId) =',request.to_json()
+  response = request.execute()
+  #response = posts.list(blogId=blogId).execute()
+  if debug: print 'response =',json.dumps(response, indent=2)
+  while 'items' in response:
+    for item in response['items']:
+      if title == item['title']:
+        return item
+      if debug: print json.dumps(item, indent=2)
+    if 'nextPageToken' in response:
+      request = posts.list(blogId=blogId, pageToken=response['nextPageToken'], status=status)
+      response = request.execute()
+    else:
+      response = {} # Leave while loop
+  return None
 
 
 def authenticate(args, debug=False):
