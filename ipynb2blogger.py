@@ -12,7 +12,8 @@ from oauth2client.file import Storage
 from oauth2client.tools import run_flow
 from oauth2client.tools import argparser
 from googleapiclient.errors import HttpError
-
+# iPython notebooks
+from IPython.nbconvert import HTMLExporter
 
 def main():
   """
@@ -141,16 +142,23 @@ def insertPost(args, debug=False):
   Inserts a file as a post to a blog.
   """
 
-  title = os.path.splitext( os.path.basename(args.file) )[0]
+  title, suffix = os.path.splitext( os.path.basename(args.file) )
 
-  # Read mathJax header
+  # Need to add mathJax header in front of html
   mathJaxFile = os.path.join(os.path.dirname(__file__),'mathJax.html')
-  with open (mathJaxFile, 'r') as htmlfile:
-    mathJax = htmlfile.read()
+  with open (mathJaxFile, 'r') as htmlFile:
+    mathJax = htmlFile.read()
 
   # Read file to post
-  with open (args.file, 'r') as htmlfile:
-    html = htmlfile.read()
+  if suffix in ('.html','.htm'):
+    with open (args.file, 'r') as htmlFile:
+      html = mathJax + htmlFile.read()
+  elif suffix in '.ipynb':
+    exportHtml = HTMLExporter(template_file='basic')
+    html = mathJax + exportHtml.from_filename(args.file)[0]
+  else:
+    print args.file,'has an unrecognized suffix. Stopping.'
+    return
 
   # Start communications with blogger
   service, http = authenticate(args)
@@ -185,7 +193,7 @@ def insertPost(args, debug=False):
 
   if existingPost != None:
     if args.update:
-      existingPost['content'] = mathJax + html
+      existingPost['content'] = html
       postId = existingPost['id']
       request = posts.update(blogId=blogId, postId=postId, body=existingPost)
       if debug: print 'posts().update() =',request.to_json()
@@ -198,7 +206,7 @@ def insertPost(args, debug=False):
     body = {}
     body['kind'] = 'blogger#post'
     body['title'] = title
-    body['content'] = mathJax + html
+    body['content'] = html
     body['blog'] = {'id': blogId}
     request = posts.insert(blogId=blogId, body=body, isDraft=True)
     if debug: print 'posts().insert() =',request.to_json()
