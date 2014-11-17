@@ -46,6 +46,7 @@ def main():
   parser_insertPost.add_argument('url', type=str, help='URL of blogger blog.')
   parser_insertPost.add_argument('file', type=str, help='File to upload as the post.')
   parser_insertPost.add_argument('-u', '--update', action='store_true', help='Update existing post matched by title.')
+  parser_insertPost.add_argument('-l', '--label', type=str, default=None, help='Label to attach to post. Repeat for multiple labels.', action='append')
   parser_insertPost.set_defaults(action=insertPost)
 
   cArgs = parser.parse_args()
@@ -160,6 +161,10 @@ def insertPost(args, debug=False):
     print args.file,'has an unrecognized suffix. Stopping.'
     return
 
+  # Labels for post
+  if args.label is None: labels = None
+  else: labels = args.label
+
   # Start communications with blogger
   service, http = authenticate(args)
 
@@ -194,6 +199,7 @@ def insertPost(args, debug=False):
   if existingPost != None:
     if args.update:
       existingPost['content'] = html
+      if labels != None: existingPost['labels'] = labels
       postId = existingPost['id']
       request = posts.update(blogId=blogId, postId=postId, body=existingPost)
       if debug: print 'posts().update() =',request.to_json()
@@ -208,6 +214,7 @@ def insertPost(args, debug=False):
     body['title'] = title
     body['content'] = html
     body['blog'] = {'id': blogId}
+    body['labels'] = labels
     request = posts.insert(blogId=blogId, body=body, isDraft=True)
     if debug: print 'posts().insert() =',request.to_json()
     response = request.execute()
