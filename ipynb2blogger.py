@@ -47,6 +47,7 @@ def main():
   parser_post.add_argument('file', type=str, help='File to upload as the post.')
   parser_post.add_argument('-u', '--update', action='store_true', help='Update existing post matched by title.')
   parser_post.add_argument('-l', '--label', type=str, default=None, help='Label to attach to post. Repeat for multiple labels.', action='append')
+  parser_post.add_argument('-t', '--title', type=str, default=None, help='Title to give the post. By default, the file name is used for the title.')
   parser_post.set_defaults(action=post)
 
   cArgs = parser.parse_args()
@@ -164,6 +165,8 @@ def post(args, debug=False):
   # Labels for post
   if args.label is None: labels = None
   else: labels = args.label
+
+  if args.title is not None: title = args.title
 
   # Start communications with blogger
   service, http = authenticate(args)
