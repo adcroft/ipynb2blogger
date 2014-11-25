@@ -42,12 +42,12 @@ def main():
   group.add_argument('-d', '--draft', action='store_true', help='List draft posts.')
   group.add_argument('-s', '--scheduled', action='store_true', help='List scheduled posts.')
 
-  parser_insertPost = subparsers.add_parser('insert', help='Upload a post.')
-  parser_insertPost.add_argument('url', type=str, help='URL of blogger blog.')
-  parser_insertPost.add_argument('file', type=str, help='File to upload as the post.')
-  parser_insertPost.add_argument('-u', '--update', action='store_true', help='Update existing post matched by title.')
-  parser_insertPost.add_argument('-l', '--label', type=str, default=None, help='Label to attach to post. Repeat for multiple labels.', action='append')
-  parser_insertPost.set_defaults(action=insertPost)
+  parser_post = subparsers.add_parser('post', help='Upload a post.')
+  parser_post.add_argument('url', type=str, help='URL of blogger blog.')
+  parser_post.add_argument('file', type=str, help='File to upload as the post.')
+  parser_post.add_argument('-u', '--update', action='store_true', help='Update existing post matched by title.')
+  parser_post.add_argument('-l', '--label', type=str, default=None, help='Label to attach to post. Repeat for multiple labels.', action='append')
+  parser_post.set_defaults(action=post)
 
   cArgs = parser.parse_args()
   #if cArgs.debug:
@@ -138,7 +138,7 @@ def listPosts(args, debug=False):
       response = {} # Leave while loop
 
 
-def insertPost(args, debug=False):
+def post(args, debug=False):
   """
   Inserts a file as a post to a blog.
   """
