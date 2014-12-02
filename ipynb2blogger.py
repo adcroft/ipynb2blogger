@@ -22,32 +22,50 @@ def main():
   """
   global debug
 
+  thisTool = 'ipynb2blogger.py'
   parser = argparse.ArgumentParser(
-    description='ipynb2blogger.py is a tool for posting iPython notebooks to blogger.',
+    description=thisTool+' is a tool for posting iPython notebooks to blogger.',
     parents=[argparser],
     epilog='Written by A.Adcroft, 2014 (https://github.com/Adcroft).')
   parser.add_argument('-d', '--debug', action='store_true', help='Turn on debugging.')
-  subparsers = parser.add_subparsers()#help='sub-command help')
+  parser.add_argument('url', type=str, nargs='?',
+    help='URL of blogger blog. Only required for commands \'posts\' and \'post\'.')
+  subparsers = parser.add_subparsers(prog=thisTool+' url')
 
-  parser_whoAmI = subparsers.add_parser('whoami', help='Display username you are authenticated as.')
+  # These sub-commands do not need the url arguments so need a "prog=" argument to add_parser()
+  parser_logIn = subparsers.add_parser('login', prog=thisTool+' login',
+                   help='Log on to blogger.',
+                   description='Authenticate with blogger. A browser will appear for you to login to google.')
+  parser_logIn.set_defaults(action=logIn)
+
+  msg = 'Disconnects the authenticated user.'
+  parser_logOut = subparsers.add_parser('logout', prog=thisTool+' logout', help=msg, description=msg)
+  parser_logOut.set_defaults(action=logOut)
+
+  msg = 'Display the authenticated blogger user name.'
+  parser_whoAmI = subparsers.add_parser('whoami', prog=thisTool+' whoami', help=msg, description=msg)
   parser_whoAmI.set_defaults(action=whoAmI)
 
-  parser_listBlogs = subparsers.add_parser('listblogs', help='Lists blogs the authenticated user can post to.')
+  msg = 'Lists blogs that the authenticated user can post to.'
+  parser_listBlogs = subparsers.add_parser('blogs', prog=thisTool+' blogs', help=msg, description=msg)
   parser_listBlogs.set_defaults(action=listBlogs)
 
-  parser_listPosts = subparsers.add_parser('list', help='Lists published posts in blog at url.')
-  parser_listPosts.add_argument('url', type=str, help='URL of blogger blog.')
+  msg = 'Lists published posts in blog at url.'
+  parser_listPosts = subparsers.add_parser('posts', help=msg, description=msg)
   parser_listPosts.set_defaults(action=listPosts)
   group = parser_listPosts.add_mutually_exclusive_group()
   group.add_argument('-d', '--draft', action='store_true', help='List draft posts.')
   group.add_argument('-s', '--scheduled', action='store_true', help='List scheduled posts.')
 
-  parser_post = subparsers.add_parser('post', help='Upload a post.')
-  parser_post.add_argument('url', type=str, help='URL of blogger blog.')
+  msg = 'Upload a post to blog at url.'
+  parser_post = subparsers.add_parser('post', help=msg, description=msg)
   parser_post.add_argument('file', type=str, help='File to upload as the post.')
-  parser_post.add_argument('-u', '--update', action='store_true', help='Update existing post matched by title.')
-  parser_post.add_argument('-l', '--label', type=str, default=None, help='Label to attach to post. Repeat for multiple labels.', action='append')
-  parser_post.add_argument('-t', '--title', type=str, default=None, help='Title to give the post. By default, the file name is used for the title.')
+  parser_post.add_argument('-l', '--label', type=str, default=None,
+    help='Label to attach to post. Repeat for multiple labels.', action='append')
+  parser_post.add_argument('-t', '--title', type=str, default=None,
+    help='Title to give the post. By default, the file name is used for the title.')
+  parser_post.add_argument('-u', '--update', action='store_true',
+    help='Update existing post matching this title. By default a matching post will block the new post to avoid accidentally overwriting posts.')
   parser_post.set_defaults(action=post)
 
   cArgs = parser.parse_args()
@@ -248,6 +266,25 @@ def getPostByTitle(posts, blogId, title, status='draft', debug=False):
     else:
       response = {} # Leave while loop
   return None
+
+
+def logIn(args, debug=False):
+  """
+  Authenticates user.
+  """
+
+  service, http = authenticate(args)
+
+
+def logOut(args, debug=False):
+  """
+  Disconnects the authenticated user.
+  """
+
+  try:
+    os.remove('.blogger.credentials')
+  except:
+    print 'No credentials file found! Are in the right directory or did you log off already?'
 
 
 def authenticate(args, debug=False):
