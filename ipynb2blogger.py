@@ -50,12 +50,13 @@ def main():
   parser_listBlogs = subparsers.add_parser('blogs', prog=thisTool+' blogs', help=msg, description=msg)
   parser_listBlogs.set_defaults(action=listBlogs)
 
-  msg = 'Lists published posts in blog at url.'
+  msg = 'Lists posts in blog at url.'
   parser_listPosts = subparsers.add_parser('posts', help=msg, description=msg)
   parser_listPosts.set_defaults(action=listPosts)
   group = parser_listPosts.add_mutually_exclusive_group()
-  group.add_argument('-d', '--draft', action='store_true', help='List draft posts.')
-  group.add_argument('-s', '--scheduled', action='store_true', help='List scheduled posts.')
+  group.add_argument('-p', '--published', action='store_true', help='Only list published posts.')
+  group.add_argument('-d', '--draft', action='store_true', help='Only list draft posts.')
+  group.add_argument('-s', '--scheduled', action='store_true', help='Only list scheduled posts.')
 
   msg = 'Upload a post to blog at url.'
   parser_post = subparsers.add_parser('post', help=msg, description=msg)
@@ -134,27 +135,36 @@ def listPosts(args, debug=False):
   if debug: print 'blogId =',blogId
 
   # Options
-  status = None
-  if args.draft: status = 'draft'
-  if args.scheduled: status = 'scheduled'
+  statuses = [None, 'draft', 'scheduled']
+  if args.published: statuses = [None]
+  if args.draft: statuses = ['draft']
+  if args.scheduled: statuses = ['scheduled']
 
   # Get list of posts
   posts = service.posts()
   if debug: print 'posts =',posts
-  request = posts.list(blogId=blogId, status=status, fetchBodies=False)
-  if debug: print 'posts().list(blogId=blogId) =',request.to_json()
-  response = request.execute()
-  #response = service.posts().list(blogId=blogId).execute()
-  if debug: print 'response =',json.dumps(response, indent=2)
-  while 'items' in response:
-    for item in response['items']:
-      print item['published'],item['title']
-      if debug: print json.dumps(item, indent=2)
-    if 'nextPageToken' in response:
-      request = posts.list(blogId=blogId, pageToken=response['nextPageToken'], status=status, fetchBodies=False)
-      response = request.execute()
-    else:
-      response = {} # Leave while loop
+
+  for status in statuses:
+
+    request = posts.list(blogId=blogId, status=status, fetchBodies=False)
+    if debug: print 'posts().list(blogId=blogId) =',request.to_json()
+    response = request.execute()
+    #response = service.posts().list(blogId=blogId).execute()
+    if debug: print 'response =',json.dumps(response, indent=2)
+    while 'items' in response:
+      for item in response['items']:
+        if status is 'scheduled':
+          print 'Sched',item['published'],item['title']
+        elif status is 'draft':
+          print 'Draft',item['published'],item['title']
+        else:
+          print '     ',item['published'],item['title']
+        if debug: print json.dumps(item, indent=2)
+      if 'nextPageToken' in response:
+        request = posts.list(blogId=blogId, pageToken=response['nextPageToken'], status=status, fetchBodies=False)
+        response = request.execute()
+      else:
+        response = {} # Leave while loop
 
 
 def post(args, debug=False):
